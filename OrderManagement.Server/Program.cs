@@ -13,6 +13,7 @@ namespace OrderManagement.Server
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
+            builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
             builder.Services.AddDistributedMemoryCache();
 
@@ -40,7 +41,7 @@ namespace OrderManagement.Server
             app.UseAuthorization();
 
             app.UseSession();
-
+            app.UseRouting();
             app.MapControllers();
 
             app.MapFallbackToFile("/index.html");

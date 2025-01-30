@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections;
+using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 
@@ -7,39 +9,61 @@ namespace OrderManagement.Server.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class OrderManagementController
+    public class OrderManagementController : ControllerBase
     {
-        [HttpPost(Name = "Setup")]
-        public async void SetupOrders()
+        private IHttpContextAccessor _httpContextAccessor;
+
+        OrderManagementController(IHttpContextAccessor httpContextAccessor)
+        {
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        [HttpPost("Setup")]
+        public async Task<IActionResult> SetupOrders()
         {
             SetupSession();
+            return Ok(new { Message = "Session setup complete" });
         }
 
-        [HttpGet(Name = "AddOrder")]
-        public async void AddOrder(OrderDetails order)
+        [HttpPost("AddOrder")]
+        public async Task<IActionResult> AddOrderToSession(OrderDetails order)
         {
-            var orders = GetOrders();
-            orders.Add(order);
-            Session["OrderDetails"] = orders;
+            var orders = GetOrdersFromSession() as List<OrderDetails>;
+
+            if(orders != null)
+            {
+                orders.Add(order);
+                SaveOrdersToSession(orders);
+            }
+
+            return Ok(new { Message = "Order added successfully" });
         }
 
-        [HttpGet(Name = "GetOrders")]
-        public async IEnumerable<OrderDetails> GetOrderDetails()
+        [HttpGet("GetOrders")]
+        public IEnumerable<OrderDetails> GetOrderDetails()
         {
-            return GetOrders();
+            return GetOrdersFromSession();
         }
 
         void SetupSession()
         {
-            if (!Session["OrderDetails"])
+            if (string.IsNullOrEmpty(_httpContextAccessor.HttpContext.Session.GetString("OrderDetails")))
             {
-                Session["OrderDetails"] = new List<OrderDetails>();
+                SaveOrdersToSession(new List<OrderDetails>());
             }
         }
 
-        IEnumerable<OrderDetails> GetOrders()
+        IEnumerable<OrderDetails> GetOrdersFromSession()
         {
-            return Session["OrderDetails"] as List<OrderDetails>;
+            var sessionData = _httpContextAccessor.HttpContext.Session.GetString("OrderDetails");
+            return sessionData != null ? JsonSerializer.Deserialize<List<OrderDetails>>(sessionData) : new List<OrderDetails>();
         }
-    }
+
+        private void SaveOrdersToSession(List<OrderDetails> orders)
+        {
+            var json = JsonSerializer.Serialize(orders);
+            _httpContextAccessor.HttpContext.Session.SetString("OrderDetails", json);
+        }
+    }      
 }
+
